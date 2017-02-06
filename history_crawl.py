@@ -35,6 +35,7 @@ page_sub_url_packs = []
 class HTMLParser__wiki_page(HTMLParser):
 
 	def handle_starttag(self, tag, attrs):
+		
 		global in_content
 		global page_thumbinner
 		global page_thumbcaption
@@ -129,6 +130,7 @@ class HTMLParser__wiki_page(HTMLParser):
 								return
 
 	def handle_data(self, data):
+
 		global page_thumbcaption
 		global img_caption
 
@@ -142,6 +144,7 @@ class HTMLParser__wiki_page(HTMLParser):
 		# 	hit_heading = False
 
 	def handle_endtag(self, tag):
+
 		global page_thumbcaption_magnify
 		global page_thumbcaption
 		global img_caption
@@ -157,6 +160,7 @@ class HTMLParser__wiki_page(HTMLParser):
 
 
 def saveImg(img_url, img_file, wiki_img_folder):
+
 	if img_url in img_page_url_list:
 		print('img already saved globally:', img_url)
 		return
@@ -190,6 +194,7 @@ wiki_folder = ''
 class HTMLParser__wiki_img_page(HTMLParser):
 
 	def handle_starttag(self, tag, attrs):
+
 		global hit_org_img
 		# global hit_description
 		global hit_info_title
@@ -238,6 +243,7 @@ class HTMLParser__wiki_img_page(HTMLParser):
 			return
 
 	def handle_data(self, data):
+
 		# global hit_description
 		global hit_info_title
 		global info_title
@@ -255,6 +261,7 @@ class HTMLParser__wiki_img_page(HTMLParser):
 			img_page_data['info'][info_title] += data
 
 	def handle_endtag(self, tag):
+
 		# global hit_description
 		global hit_info_title
 		global hit_info_data
@@ -271,12 +278,13 @@ class HTMLParser__wiki_img_page(HTMLParser):
 
 
 def Crawl__wiki_img_page(url):
+
 	global img_page_data
 
 	img_page_data = {
 		'url': None,
 		'date': None,
-		'description': '',
+		# 'description': '',
 		'info': {}
 	}
 
@@ -284,15 +292,16 @@ def Crawl__wiki_img_page(url):
 	try:
 		a = urllib.request.urlopen(url)
 	except urllib.error.HTTPError as e:
-	    print('http error:', e.code, 'url:', url)
+		print('img http error:', e.code, 'url:', url)
 	except urllib.error.URLError as e:
-	    print('url error, url:', url)
+		print('img url error, url:', url)
 	if a:
 		wiki_img_page = str(a.read())[2:-1]
 		parser = HTMLParser__wiki_img_page()
 		parser.feed(wiki_img_page)
 
 def Crawl__wiki_page(url_pack, wiki_sub_folder):
+
 	global max_depth
 	global max_depth_reached
 	global img_page_urls
@@ -386,46 +395,55 @@ def Crawl__wiki_page(url_pack, wiki_sub_folder):
 	json_file_path = os.path.join(folder, json_file_name)
 
 
-	# if not os.path.exists(json_file_path):
+	if not os.path.exists(json_file_path):
 
-	## wiki url parse
-	wiki_page = str(urllib.request.urlopen(wiki_page_data['url']).read())[2:-1]
-	wiki_page_parser = HTMLParser__wiki_page()
-	wiki_page_parser.feed(wiki_page)
-	wiki_page_data['sub_url_packs'] = page_sub_url_packs
-	page_sub_url_packs = []
-	
-	## wiki imgs parse
-	for i in range(len(img_page_urls)):
-		Crawl__wiki_img_page(img_page_urls[i])
-		img_page_data['page_url'] = img_page_urls[i]
-		if len(img_page_urls) == len(img_captions):
-			img_page_data['img_caption'] = img_captions[i]
-		wiki_page_data['img_packs'].append(img_page_data)
-	img_page_urls = []
-	img_captions = []
+		## wiki url parse
+		a = None
+		try:
+			a = urllib.request.urlopen(wiki_page_data['url'])
+		except urllib.error.HTTPError as e:
+			print('http error:', e.code, 'url:', wiki_page_data['url'])
+		except urllib.error.URLError as e:
+			print('url error, url:', wiki_page_data['url'])
+		if a:
 
-	## save json
-	with open(json_file_path, 'w') as outfile:
-		print(json.dumps(wiki_page_data, sort_keys=False, indent=4), file=outfile)
-	
-	## save html
-	html_file_name = 'wiki__' + wiki_page_data['title'].replace(' ', '_') + '.html'
-	html_file_path = os.path.join(folder, html_file_name)
-	with open(html_file_path, 'w') as outfile:
-		print(wiki_page, file=outfile)
+			wiki_page = str(a.read())[2:-1]
+			wiki_page_parser = HTMLParser__wiki_page()
+			wiki_page_parser.feed(wiki_page)
+			wiki_page_data['sub_url_packs'] = page_sub_url_packs
+			page_sub_url_packs = []
+		
+			## wiki imgs parse
+			for i in range(len(img_page_urls)):
+				Crawl__wiki_img_page(img_page_urls[i])
+				img_page_data['page_url'] = img_page_urls[i]
+				if len(img_page_urls) == len(img_captions):
+					img_page_data['img_caption'] = img_captions[i]
+				wiki_page_data['img_packs'].append(img_page_data)
+			img_page_urls = []
+			img_captions = []
 
-	# ## wiki other imgs
-	# for img_other_url in img_other_urls:
-	# 	img_file = img_other_url.split('/')[-1]
-	# 	wiki_img_folder = os.path.join(wiki_folder, 'imgs')
-	# 	saveImg(img_other_url, img_file, wiki_img_folder) #_
-	
-	print('url parsed')
+			## save json
+			with open(json_file_path, 'w') as outfile:
+				print(json.dumps(wiki_page_data, sort_keys=False, indent=4), file=outfile)
+			
+			## save html
+			html_file_name = 'wiki__' + wiki_page_data['title'].replace(' ', '_') + '.html'
+			html_file_path = os.path.join(folder, html_file_name)
+			with open(html_file_path, 'w') as outfile:
+				print(wiki_page, file=outfile)
 
-	# else:
-	# 	wiki_page_data = json.loads(open(json_file_path).read()) #.strip("'<>() ")
-	# 	print('url already parsed, loaded json. url:', url_pack['url'])
+			# ## wiki other imgs
+			# for img_other_url in img_other_urls:
+			# 	img_file = img_other_url.split('/')[-1]
+			# 	wiki_img_folder = os.path.join(wiki_folder, 'imgs')
+			# 	saveImg(img_other_url, img_file, wiki_img_folder) #_
+		
+			print('url parsed')
+
+	else:
+		wiki_page_data = json.loads(open(json_file_path).read()) #.strip("'<>() ")
+		print('url already parsed, loaded json, url:', url_pack['url'])
 
 
 	page_url_list.append(url_pack['url'])
@@ -433,6 +451,8 @@ def Crawl__wiki_page(url_pack, wiki_sub_folder):
 	## wiki sub urls
 	print('sub urls:', len(wiki_page_data['sub_url_packs']))
 	for sub_url_pack in wiki_page_data['sub_url_packs']:
+		if sub_url_pack['title'] == None:
+			sub_url_pack['title'] == ''
 		sub_folder = os.path.join(wiki_sub_folder, 'sub_wikis', 'wiki__' + sub_url_pack['title'].replace(' ', '_'))
 		Crawl__wiki_page(sub_url_pack, sub_folder)
 
