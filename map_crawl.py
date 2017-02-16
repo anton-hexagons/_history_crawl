@@ -1,8 +1,9 @@
 import os
 import sys
 import math
-import json”
+import json
 import urllib.request
+import requests
 
 
 map_key = 'AIzaSyBl08GvP1rUEmPOpPHcPZ2WJhvwjuGlxpg'
@@ -45,7 +46,7 @@ def Seach_map(location):
 		map_json = json.loads(map_page)
 		map_status = map_json['status']
 
-		if map_status == 'OK':
+		if map_status == 'OK' or map_status in ['ROOFTOP']:
 
 			map_result = map_json['results'][0]
 
@@ -56,12 +57,14 @@ def Seach_map(location):
 				'location': map_result['geometry']['location'],
 				'accuracy': map_result['geometry']['location_type']
 			}
-
+			# print('map_status: OK  location:', map_pack['name'])
 			return map_pack
 
-		else:
-
+		elif map_status == 'ZERO_RESULTS':
 			return None
+
+		else:
+			print('location:', location, ' map_status:', map_status)
 
 
 def Map_crawl(wiki_sub_folder):
@@ -88,56 +91,105 @@ def Map_crawl(wiki_sub_folder):
 	if not os.path.exists(wiki_json_file):
 		print('json dose not exist:', wiki_json_name)
 		return
-	wiki_json = json.loads(open(wiki_json_file).read())
-
-	print('> wiki:', wiki_json['title'])
+	wiki_json = json.loads(open(wiki_json_file).read().strip("'<>"))
 
 
-	if 'img_packs' in wiki_json:
-		for img_pack in wiki_json['img_packs']:
-			if 'img_caption' in img_pack:
-				if 'img_caption_location' in img_pack:
-					if img_pack['img_caption_location'] == 'private_collection':
-						print('img_caption_location already found, title:', img_pack['img_caption'], ', location: private_collection')
-					else:
-						print('img_caption_location already found, title:', img_pack['img_caption'], ', location:', img_pack['img_caption_location']['location'], img_pack['img_caption_location']['accuracy'])
-				else:
-					img_caption__location_pack = Seach_map(img_pack['img_caption'])
-					if img_caption__location_pack:
-						if img_caption__location_pack == 'private_collection':
-							print('img_caption_location, title:', img_pack['img_caption'], ', location: private_collection')
-						else:
-							print('img_caption_location, title:', img_pack['img_caption'], ', location:', img_caption__location_pack['location'], img_caption__location_pack['accuracy'])
-						img_pack['img_caption_location'] = img_caption__location_pack
-						img_location_count += 1
-			else:
-				pass
-				# print('no img_caption')
-			for info in img_pack['info']:
-				if 'Current location' in info:
-					if 'img_current_location' in img_pack:
-						if img_pack['img_current_location'] == 'private_collection':
-							print('current_location already found, title:', img_pack['img_caption'], ', location: private_collection')
-						else:
-							print('current_location already found, title:', current_location, ', location:', img_pack['img_current_location']['location'], img_pack['img_current_location']['accuracy'])
-					else:
-						current_location = img_pack['info'][info]
-						current_location__location_pack = Seach_map(current_location)
-						if current_location__location_pack:
-							if current_location__location_pack == 'private_collection':
-								print('current_location, title:', current_location, ', location: private_collection')
-							else:
-								print('current_location, title:', current_location, ', location:', current_location__location_pack['location'], current_location__location_pack['accuracy'])
-							img_pack['img_current_location'] = current_location__location_pack
-							img_location_count += 1
-			img_count += 1
+	if 'location_searched' in wiki_json and wiki_json['location_searched']:
+		print('>> location_searched wiki:', wiki_json['title'], ' wiki_sub_folder:', wiki_sub_folder)
+
 	else:
-		pass
-		# print('no img_packs')
 
-	with open(wiki_json_file, 'w') as outfile:
-		print(json.dumps(wiki_json, sort_keys=False, indent=4), file=outfile)
-			
+		print('>> wiki:', wiki_json['title'], ' wiki_sub_folder:', wiki_sub_folder)
+
+		if 'img_packs' in wiki_json:
+			for img_pack in wiki_json['img_packs']:
+
+				if 'path' in img_pack:
+
+					location_title = '.'.join(os.path.basename(img_pack['path']).split('.')[:-1])
+
+					checked = 'img_name_location' in img_pack
+					if checked:
+						img_name__location = img_pack['img_name_location']
+					else:
+						img_name__location = Seach_map(location_title)
+						img_pack['img_name_location'] = img_name__location
+
+					no_location = img_name__location == None or isinstance(img_name__location, str)
+
+					print(
+						'old,' if checked else ('none,' if no_location else '> new,'),
+						'img_name_location,',
+						'title: [', location_title, ']',
+						'location:', img_name__location if no_location else img_name__location['name'],
+						'' if no_location else img_name__location['location'],
+						'' if no_location else img_name__location['accuracy']
+					)
+				
+					if not checked and not no_location:
+						img_location_count += 1
+
+
+				if 'img_caption' in img_pack:
+
+					location_title = img_pack['img_caption']
+
+					checked = 'img_caption_location' in img_pack
+					if checked:
+						img_caption__location = img_pack['img_caption_location']
+					else:
+						img_caption__location = Seach_map(location_title)
+						img_pack['img_caption_location'] = img_caption__location
+					
+					no_location = img_caption__location == None or isinstance(img_caption__location, str)
+
+					print(
+						'old,' if checked else ('none,' if no_location else '> new,'),
+						'img_caption_location,',
+						'title: [', location_title, ']',
+						'location:', img_caption__location if no_location else img_caption__location['name'],
+						'' if no_location else img_caption__location['location'],
+						'' if no_location else img_caption__location['accuracy']
+					)
+				
+					if not checked and not no_location:
+						img_location_count += 1
+
+
+				for info in img_pack['info']:
+					if 'Current location' in info:
+						
+						location_title = img_pack['info'][info]
+
+						checked = 'img_current_location' in img_pack
+						if checked:
+							current_location__location = img_pack['img_current_location']
+						else:
+							current_location__location = Seach_map(location_title)
+							img_pack['img_current_location'] = current_location__location
+
+						no_location = current_location__location == None or isinstance(img_pack['img_current_location'], str)
+
+						print(
+							'old,' if checked else ('none,' if no_location else '> new,'),
+							'img_current_location,',
+							'title: [', location_title, ']',
+							'location:', current_location__location if no_location else current_location__location['name'],
+							'' if no_location else current_location__location['location'],
+							'' if no_location else current_location__location['accuracy']
+						)
+
+						if not checked and not no_location:
+							img_location_count += 1
+				
+
+				img_count += 1
+
+		wiki_json['location_searched'] = True
+
+		with open(wiki_json_file, 'w') as outfile:
+			print(json.dumps(wiki_json, sort_keys=False, indent=4), file=outfile)
+				
 
 	for sub_url_pack in wiki_json['sub_url_packs']:
 		title = sub_url_pack['title']
