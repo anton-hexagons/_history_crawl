@@ -1,7 +1,6 @@
 import os
 import sys
 import math
-# import numpy
 import json
 import urllib.request
 from html.parser import HTMLParser
@@ -35,7 +34,7 @@ page_sub_url_packs = []
 class HTMLParser__wiki_page(HTMLParser):
 
 	def handle_starttag(self, tag, attrs):
-		
+
 		global in_content
 		global page_thumbinner
 		global page_thumbcaption
@@ -176,11 +175,22 @@ def saveImg(img_url, img_file, wiki_img_folder):
 	if os.path.exists(img_file_path):
 		print('img already saved, url:', img_url)
 		return
-	img_data = urllib.request.urlopen('https://' + img_page_data['url']).read()
-	img_file = open(img_file_path, 'wb')
-	img_file.write(img_data)
-	img_page_url_list.append(img_url)
-	print('img saved, url:', img_url)
+	url = 'https://' + img_page_data['url']
+	a = None
+	try:
+		a = urllib.request.urlopen(url)
+	except urllib.error.HTTPError as e:
+		print('img http error:', e.code, 'url:', url)
+	except urllib.error.URLError as e:
+		print('img url error, url:', url)
+	if a:
+		img_data = a.read()
+		img_file = open(img_file_path, 'wb')
+		img_file.write(img_data)
+		img_page_url_list.append(img_url)
+		print('img saved, url:', img_url)
+	else:
+		return
 
 
 hit_org_img = False
